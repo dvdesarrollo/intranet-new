@@ -1,0 +1,37 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { apiFetch } from '../../lib/api';
+
+const { tenant, accessToken } = Astro.locals;
+const folderId = Astro.url.searchParams.get('folderId');
+
+interface Doc {
+  id: string;
+  title: string;
+  mimeType: string;
+}
+
+const documents = await apiFetch<Doc[]>(
+  `/documents${folderId ? `?folderId=${folderId}` : '?folderId='}`,
+  { tenantSlug: tenant.slug, accessToken },
+).catch(() => []);
+---
+
+<BaseLayout title="Documentos">
+  <h1>Documentos</h1>
+  <div class="card">
+    <table>
+      <thead><tr><th>Título</th><th>Tipo</th><th></th></tr></thead>
+      <tbody>
+        {documents.map((doc) => (
+          <tr>
+            <td>{doc.title}</td>
+            <td>{doc.mimeType}</td>
+            <td><a href={`/api/documents/${doc.id}/download`} target="_blank">Ver</a></td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+    {documents.length === 0 && <p>No tienes documentos visibles en esta carpeta.</p>}
+  </div>
+</BaseLayout>

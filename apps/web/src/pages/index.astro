@@ -1,0 +1,13 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+const user = Astro.locals.user;
+---
+
+<BaseLayout title="Inicio">
+  <h1>Bienvenido/a</h1>
+  <div class="card">
+    <p>Roles: {user?.roles.join(', ')}</p>
+    <p>Accede a marcación, tu rol de pagos, solicitudes, documentos y notificaciones desde el menú.</p>
+  </div>
+</BaseLayout>

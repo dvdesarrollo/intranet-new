@@ -1,0 +1,85 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { apiFetch } from '../../lib/api';
+
+const { tenant, accessToken } = Astro.locals;
+
+interface RequestItem {
+  id: string;
+  type: 'LOAN' | 'PERMISSION' | 'VACATION';
+  status: string;
+  currentStep: number;
+  createdAt: string;
+}
+
+let formError: string | null = null;
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const type = String(form.get('type'));
+  const payload: Record<string, unknown> = { type, reason: form.get('reason') };
+  if (type === 'LOAN') {
+    payload.amount = Number(form.get('amount'));
+    payload.installments = Number(form.get('installments'));
+  } else {
+    payload.startDate = form.get('startDate');
+    payload.endDate = form.get('endDate');
+  }
+
+  try {
+    await apiFetch('/requests', {
+      method: 'POST',
+      tenantSlug: tenant.slug,
+      accessToken,
+      body: JSON.stringify(payload),
+    });
+    return Astro.redirect('/requests');
+  } catch (e) {
+    formError = e instanceof Error ? e.message : 'No se pudo crear la solicitud';
+  }
+}
+
+const myRequests = await apiFetch<RequestItem[]>('/requests/me', {
+  tenantSlug: tenant.slug,
+  accessToken,
+}).catch(() => []);
+---
+
+<BaseLayout title="Mis solicitudes">
+  <h1>Solicitudes</h1>
+
+  <div class="card">
+    <h2>Nueva solicitud</h2>
+    {formError && <p class="error">{formError}</p>}
+    <form method="POST">
+      <select name="type" required>
+        <option value="VACATION">Vacaciones</option>
+        <option value="PERMISSION">Permiso</option>
+        <option value="LOAN">Préstamo</option>
+      </select>
+      <input type="date" name="startDate" placeholder="Desde" />
+      <input type="date" name="endDate" placeholder="Hasta" />
+      <input type="number" name="amount" placeholder="Monto (préstamo)" step="0.01" />
+      <input type="number" name="installments" placeholder="Cuotas (préstamo)" />
+      <textarea name="reason" placeholder="Motivo"></textarea>
+      <button class="btn-primary" type="submit">Enviar solicitud</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>Mis solicitudes</h2>
+    <table>
+      <thead><tr><th>Tipo</th><th>Estado</th><th>Paso actual</th><th>Fecha</th></tr></thead>
+      <tbody>
+        {myRequests.map((r) => (
+          <tr>
+            <td>{r.type}</td>
+            <td>{r.status}</td>
+            <td>{r.currentStep}</td>
+            <td>{new Date(r.createdAt).toLocaleDateString()}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+</BaseLayout>

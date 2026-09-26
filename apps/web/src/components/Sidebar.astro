@@ -1,0 +1,36 @@
+---
+interface Props {
+  tenantName: string;
+  logoUrl: string | null;
+  roles: string[];
+}
+
+const { tenantName, logoUrl, roles } = Astro.props;
+
+const isApprover = roles.some((r) => ['MANAGER', 'HR', 'APPROVER', 'TENANT_ADMIN'].includes(r));
+
+const links = [
+  { href: '/', label: 'Inicio', roles: null },
+  { href: '/attendance', label: 'Marcación', roles: null },
+  { href: '/payroll', label: 'Rol de pagos', roles: null },
+  { href: '/requests', label: 'Solicitudes', roles: null },
+  { href: '/documents', label: 'Documentos', roles: null },
+  { href: '/notifications', label: 'Notificaciones', roles: null },
+];
+---
+
+<aside class="sidebar">
+  <div class="sidebar-brand">
+    {logoUrl && <img src={logoUrl} alt={tenantName} class="sidebar-logo" />}
+    <span>{tenantName}</span>
+  </div>
+  <nav>
+    {links.map((link) => (
+      <a href={link.href}>{link.label}</a>
+    ))}
+    {isApprover && <a href="/requests/pending">Aprobaciones pendientes</a>}
+  </nav>
+  <form method="POST" action="/logout">
+    <button type="submit" class="logout-btn">Cerrar sesión</button>
+  </form>
+</aside>

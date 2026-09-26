@@ -1,0 +1,717 @@
+// ============================================================================
+// Intranet Multi-tenant — Prisma Schema
+// Estrategia multi-tenant: "shared database, shared schema" con columna
+// discriminante `tenantId` en toda tabla que pertenece a una empresa.
+// Se refuerza en capa de aplicación con Prisma Middleware / Extensions
+// (ver apps/api/src/common/tenant) y opcionalmente con RLS de Postgres.
+// ============================================================================
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextSearchPostgres"]
+}
+
+// Prisma 7+: la URL de conexión ya no vive aquí. Se define en
+// `prisma.config.ts` (para Migrate/Studio) y se inyecta al `PrismaClient`
+// mediante un driver adapter (`@prisma/adapter-pg`) en tiempo de ejecución.
+// Ver packages/database/prisma.config.ts y packages/database/src/client.ts
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================================================
+// TENANT / BRANDING
+// ============================================================================
+
+model Tenant {
+  id        String   @id @default(cuid())
+  slug      String   @unique // subdominio: acme -> acme.intranet.app
+  name      String
+  ruc       String?  @unique
+  domain    String?  @unique // dominio custom opcional (intranet.acme.com)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  branding        TenantBranding?
+  users           User[]
+  departments     Department[]
+  cities          City[]
+  employees       Employee[]
+  officeLocations OfficeLocation[]
+  payslips        Payslip[]
+  payrollSyncs    PayrollSyncLog[]
+  timeEntries     TimeEntry[]
+  requests        Request[]
+  notifications   Notification[]
+  channels        Channel[]
+  documents       Document[]
+  documentFolders DocumentFolder[]
+  roles           Role[]
+
+  @@map("tenants")
+}
+
+model TenantBranding {
+  id       String @id @default(cuid())
+  tenantId String @unique
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  logoUrl            String?
+  faviconUrl         String?
+  primaryColor       String  @default("#0F172A")
+  secondaryColor     String  @default("#2563EB")
+  accentColor        String  @default("#F59E0B")
+  textColor          String  @default("#0F172A")
+  backgroundColor    String  @default("#FFFFFF")
+  fontFamily         String  @default("Inter")
+  loginBackgroundUrl String?
+
+  updatedAt DateTime @updatedAt
+
+  @@map("tenant_brandings")
+}
+
+// ============================================================================
+// RBAC — Roles / Permisos
+// ============================================================================
+
+enum SystemRole {
+  SUPER_ADMIN // administra la plataforma completa (todas las empresas)
+  TENANT_ADMIN // administrador de una empresa
+  MANAGER // jefe / gerente
+  APPROVER // aprobador de solicitudes (puede coincidir con MANAGER)
+  HR // recursos humanos
+  EMPLOYEE // empleado estándar
+}
+
+model Role {
+  id        String     @id @default(cuid())
+  tenantId  String? // null = rol global de plataforma (SUPER_ADMIN)
+  tenant    Tenant?    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name      SystemRole
+  label     String
+  createdAt DateTime   @default(now())
+
+  permissions RolePermission[]
+  userRoles   UserRole[]
+
+  @@unique([tenantId, name])
+  @@map("roles")
+}
+
+enum PermissionAction {
+  READ
+  WRITE
+  APPROVE
+  DELETE
+  MANAGE
+}
+
+enum PermissionResource {
+  EMPLOYEE_PROFILE
+  PAYROLL
+  ATTENDANCE
+  REQUEST
+  DOCUMENT
+  NOTIFICATION
+  CHANNEL
+  TENANT_SETTINGS
+}
+
+model Permission {
+  id       String             @id @default(cuid())
+  resource PermissionResource
+  action   PermissionAction
+
+  roles RolePermission[]
+
+  @@unique([resource, action])
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  userId String
+  roleId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+// ============================================================================
+// USUARIOS / EMPLEADOS
+// ============================================================================
+
+model User {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  email              String
+  passwordHash       String
+  isActive           Boolean   @default(true)
+  lastLoginAt        DateTime?
+  mustChangePassword Boolean   @default(false)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  roles    UserRole[]
+  employee Employee?
+
+  sentMessages      Message[]          @relation("MessageSender")
+  channelMembers    ChannelMember[]
+  notificationReads NotificationRead[]
+  documentsUploaded Document[]         @relation("DocumentUploadedBy")
+  approvalSteps     ApprovalStep[]
+  auditLogs         AuditLog[]
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
+  @@map("users")
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  ON_LEAVE
+  TERMINATED
+}
+
+model Department {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  name     String
+  parentId String?
+  parent   Department?  @relation("DepartmentHierarchy", fields: [parentId], references: [id])
+  children Department[] @relation("DepartmentHierarchy")
+
+  cityId String?
+  city   City?   @relation(fields: [cityId], references: [id])
+
+  employees Employee[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@map("departments")
+}
+
+model City {
+  id       String  @id @default(cuid())
+  tenantId String?
+  tenant   Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name     String
+
+  departments     Department[]
+  employees       Employee[]
+  officeLocations OfficeLocation[]
+  notifications   Notification[]
+
+  @@index([tenantId])
+  @@map("cities")
+}
+
+model Employee {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  employeeCode  String
+  firstName     String
+  lastName      String
+  documentId    String // cédula / DNI
+  birthDate     DateTime?
+  phone         String?
+  personalEmail String?
+  address       String?
+
+  position     String
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
+
+  cityId String?
+  city   City?   @relation(fields: [cityId], references: [id])
+
+  managerId     String?
+  manager       Employee?  @relation("EmployeeManager", fields: [managerId], references: [id])
+  directReports Employee[] @relation("EmployeeManager")
+
+  hireDate      DateTime
+  status        EmployeeStatus @default(ACTIVE)
+  erpEmployeeId String? // id del empleado en el ERP externo (para sync de nómina)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  familyMembers   FamilyMember[]
+  bankAccounts    BankAccount[]
+  payslips        Payslip[]
+  timeEntries     TimeEntry[]
+  requests        Request[]
+  managedChannels Channel[]      @relation("ChannelManager")
+
+  @@unique([tenantId, employeeCode])
+  @@unique([tenantId, documentId])
+  @@index([tenantId])
+  @@index([managerId])
+  @@map("employees")
+}
+
+enum FamilyRelationship {
+  SPOUSE
+  CHILD
+  PARENT
+  SIBLING
+  OTHER
+}
+
+model FamilyMember {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  fullName     String
+  relationship FamilyRelationship
+  birthDate    DateTime?
+  documentId   String?
+  isDependent  Boolean            @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([employeeId])
+  @@map("family_members")
+}
+
+// Catálogo estandarizado de bancos (seleccionable), compartido entre tenants
+model BankCatalog {
+  id   String @id @default(cuid())
+  code String @unique // código del banco (ej. código SBS/SWIFT local)
+  name String
+
+  accounts BankAccount[]
+
+  @@map("bank_catalog")
+}
+
+enum BankAccountType {
+  SAVINGS
+  CHECKING
+}
+
+model BankAccount {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  bankId String
+  bank   BankCatalog @relation(fields: [bankId], references: [id])
+
+  accountType   BankAccountType
+  accountNumber String
+  isPrimary     Boolean         @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([employeeId])
+  @@map("bank_accounts")
+}
+
+// ============================================================================
+// NÓMINA / ERP (read-only, sincronizada externamente)
+// ============================================================================
+
+enum PayrollSyncStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+model PayrollSyncLog {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  source        String // nombre/identificador del ERP externo
+  periodMonth   Int
+  periodYear    Int
+  status        PayrollSyncStatus @default(PENDING)
+  recordsRead   Int               @default(0)
+  recordsOk     Int               @default(0)
+  recordsFailed Int               @default(0)
+  errorLog      String?
+  startedAt     DateTime          @default(now())
+  finishedAt    DateTime?
+
+  @@index([tenantId, periodYear, periodMonth])
+  @@map("payroll_sync_logs")
+}
+
+model Payslip {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  periodMonth Int
+  periodYear  Int
+
+  grossSalary     Decimal @db.Decimal(12, 2)
+  totalDeductions Decimal @db.Decimal(12, 2)
+  netSalary       Decimal @db.Decimal(12, 2)
+  currency        String  @default("USD")
+
+  details        Json // desglose línea por línea proveniente del ERP (haberes/deducciones)
+  erpReferenceId String // id del recibo en el ERP externo, para trazabilidad/idempotencia
+
+  pdfUrl         String? // PDF generado con marca de agua (logo del tenant)
+  pdfGeneratedAt DateTime?
+
+  syncedAt  DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  @@unique([tenantId, employeeId, periodYear, periodMonth])
+  @@unique([tenantId, erpReferenceId])
+  @@index([tenantId, employeeId])
+  @@map("payslips")
+}
+
+// ============================================================================
+// MARCACIÓN / ASISTENCIA
+// ============================================================================
+
+model OfficeLocation {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  name   String
+  cityId String?
+  city   City?   @relation(fields: [cityId], references: [id])
+
+  latitude     Float
+  longitude    Float
+  radiusMeters Int   @default(150) // geocerca permitida para marcar
+
+  isActive Boolean @default(true)
+
+  timeEntries TimeEntry[]
+
+  @@index([tenantId])
+  @@map("office_locations")
+}
+
+enum TimeEntryType {
+  CHECK_IN
+  BREAK_START
+  BREAK_END
+  CHECK_OUT
+}
+
+model TimeEntry {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  type      TimeEntryType
+  timestamp DateTime      @default(now())
+
+  latitude         Float
+  longitude        Float
+  accuracyMeters   Float?
+  officeLocationId String?
+  officeLocation   OfficeLocation? @relation(fields: [officeLocationId], references: [id])
+  distanceMeters   Float? // distancia calculada al OfficeLocation más cercano
+  isLocationValid  Boolean // resultado de la validación geoespacial obligatoria
+
+  deviceInfo String?
+  ipAddress  String?
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, employeeId, timestamp])
+  @@map("time_entries")
+}
+
+// ============================================================================
+// SOLICITUDES Y FLUJOS DE APROBACIÓN
+// ============================================================================
+
+enum RequestType {
+  LOAN
+  PERMISSION
+  VACATION
+}
+
+enum RequestStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+model Request {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  type   RequestType
+  status RequestStatus @default(PENDING)
+
+  // Detalle polimórfico según `type` (validado en capa de aplicación con DTOs
+  // específicos: LoanDetails | VacationDetails | PermissionDetails)
+  details Json
+
+  startDate DateTime?
+  endDate   DateTime?
+  amount    Decimal?  @db.Decimal(12, 2)
+
+  currentStep Int @default(1)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  approvalSteps ApprovalStep[]
+
+  @@index([tenantId, employeeId])
+  @@index([tenantId, status])
+  @@map("requests")
+}
+
+enum ApprovalDecision {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// Cada paso representa un nivel de aprobación (ej: 1=Jefe directo, 2=RRHH).
+// El aprobador se resuelve dinámicamente por rol (APPROVER/MANAGER) + jerarquía,
+// no se fija un userId hasta que actúa.
+model ApprovalStep {
+  id        String  @id @default(cuid())
+  requestId String
+  request   Request @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  stepOrder    Int
+  requiredRole SystemRole
+  decision     ApprovalDecision @default(PENDING)
+
+  actedById String?
+  actedBy   User?     @relation(fields: [actedById], references: [id])
+  comments  String?
+  actedAt   DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@unique([requestId, stepOrder])
+  @@map("approval_steps")
+}
+
+// ============================================================================
+// COMUNICACIÓN INTERNA Y NOTIFICACIONES
+// ============================================================================
+
+enum ChannelType {
+  MANAGER_TEAM // Jefe <-> su personal a cargo
+  MANAGER_GERENTE // Jefe <-> Gerente
+}
+
+model Channel {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  type ChannelType
+  name String?
+
+  managerId String
+  manager   Employee @relation("ChannelManager", fields: [managerId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  members  ChannelMember[]
+  messages Message[]
+
+  @@index([tenantId])
+  @@map("channels")
+}
+
+model ChannelMember {
+  channelId String
+  userId    String
+  channel   Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  joinedAt  DateTime @default(now())
+
+  @@id([channelId, userId])
+  @@map("channel_members")
+}
+
+model Message {
+  id        String  @id @default(cuid())
+  channelId String
+  channel   Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  senderId String
+  sender   User   @relation("MessageSender", fields: [senderId], references: [id])
+
+  content   String
+  createdAt DateTime @default(now())
+
+  @@index([channelId, createdAt])
+  @@map("messages")
+}
+
+enum NotificationScope {
+  COMPANY
+  DEPARTMENT
+  CITY
+  INDIVIDUAL
+}
+
+model Notification {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  title String
+  body  String
+  scope NotificationScope
+
+  targetDepartmentId String?
+  targetCityId       String?
+  city               City?   @relation(fields: [targetCityId], references: [id])
+  targetUserId       String?
+
+  createdById String
+  createdAt   DateTime @default(now())
+
+  reads NotificationRead[]
+
+  @@index([tenantId, scope])
+  @@map("notifications")
+}
+
+model NotificationRead {
+  notificationId String
+  userId         String
+  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  readAt         DateTime     @default(now())
+
+  @@id([notificationId, userId])
+  @@map("notification_reads")
+}
+
+// ============================================================================
+// GESTIÓN DOCUMENTAL (RBAC por cargo/departamento)
+// ============================================================================
+
+model DocumentFolder {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  name     String
+  parentId String?
+  parent   DocumentFolder?  @relation("FolderHierarchy", fields: [parentId], references: [id])
+  children DocumentFolder[] @relation("FolderHierarchy")
+
+  documents   Document[]
+  permissions DocumentPermission[]
+
+  @@index([tenantId])
+  @@map("document_folders")
+}
+
+model Document {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  title     String
+  fileUrl   String
+  mimeType  String
+  sizeBytes Int
+
+  folderId String?
+  folder   DocumentFolder? @relation(fields: [folderId], references: [id])
+
+  uploadedById String
+  uploadedBy   User   @relation("DocumentUploadedBy", fields: [uploadedById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  permissions DocumentPermission[]
+
+  @@index([tenantId, folderId])
+  @@map("documents")
+}
+
+// Permiso de lectura/escritura por documento o carpeta, aplicado a un rol
+// y opcionalmente acotado a un departamento específico.
+model DocumentPermission {
+  id String @id @default(cuid())
+
+  documentId String?
+  document   Document? @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  folderId String?
+  folder   DocumentFolder? @relation(fields: [folderId], references: [id], onDelete: Cascade)
+
+  role         SystemRole
+  departmentId String?
+
+  canRead  Boolean @default(true)
+  canWrite Boolean @default(false)
+
+  @@map("document_permissions")
+}
+
+// ============================================================================
+// AUDITORÍA
+// ============================================================================
+
+model AuditLog {
+  id       String  @id @default(cuid())
+  tenantId String?
+  userId   String?
+  user     User?   @relation(fields: [userId], references: [id])
+
+  action     String // ej: "REQUEST_APPROVED", "PAYSLIP_VIEWED", "TIME_ENTRY_CREATED"
+  entityType String
+  entityId   String
+  metadata   Json?
+
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, entityType, entityId])
+  @@map("audit_logs")
+}

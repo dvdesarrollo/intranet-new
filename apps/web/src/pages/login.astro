@@ -1,0 +1,85 @@
+---
+import { apiFetch, ApiError } from '../lib/api';
+import { setSessionCookie } from '../lib/session';
+
+const tenant = Astro.locals.tenant;
+const branding = Astro.locals.branding;
+const next = Astro.url.searchParams.get('next') ?? '/';
+
+let error: string | null = null;
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const email = String(form.get('email') ?? '');
+  const password = String(form.get('password') ?? '');
+
+  try {
+    const result = await apiFetch<{ accessToken: string }>('/auth/login', {
+      method: 'POST',
+      tenantSlug: tenant.slug,
+      body: JSON.stringify({ email, password }),
+    });
+    setSessionCookie(Astro.cookies, result.accessToken);
+    return Astro.redirect(next);
+  } catch (e) {
+    error = e instanceof ApiError ? e.message : 'No se pudo iniciar sesión';
+  }
+}
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Iniciar sesión · {tenant.name}</title>
+    <style define:vars={{ colorPrimary: branding.primaryColor, colorSecondary: branding.secondaryColor }}>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: system-ui, sans-serif;
+        background: var(--colorPrimary);
+      }
+      .login-card {
+        background: #fff;
+        padding: 2.5rem;
+        border-radius: 12px;
+        width: 100%;
+        max-width: 380px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+      }
+      .login-card img { max-height: 48px; margin-bottom: 1rem; }
+      input {
+        width: 100%;
+        padding: 0.6rem;
+        margin-bottom: 1rem;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+      }
+      button {
+        width: 100%;
+        padding: 0.7rem;
+        background: var(--colorSecondary);
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .error { color: #dc2626; margin-bottom: 1rem; font-size: 0.9rem; }
+    </style>
+  </head>
+  <body>
+    <form class="login-card" method="POST">
+      {branding.logoUrl && <img src={branding.logoUrl} alt={tenant.name} />}
+      <h1>{tenant.name}</h1>
+      {error && <p class="error">{error}</p>}
+      <input type="email" name="email" placeholder="Correo corporativo" required />
+      <input type="password" name="password" placeholder="Contraseña" required />
+      <button type="submit">Ingresar</button>
+    </form>
+  </body>
+</html>

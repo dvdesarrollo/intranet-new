@@ -1,0 +1,63 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { apiFetch } from '../../lib/api';
+
+const { tenant, accessToken } = Astro.locals;
+
+interface PendingStep {
+  id: string;
+  requiredRole: string;
+  request: {
+    id: string;
+    type: string;
+    employee: { firstName: string; lastName: string };
+  };
+}
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const requestId = String(form.get('requestId'));
+  const decision = String(form.get('decision'));
+  await apiFetch(`/requests/${requestId}/decision`, {
+    method: 'PATCH',
+    tenantSlug: tenant.slug,
+    accessToken,
+    body: JSON.stringify({ decision }),
+  }).catch(() => null);
+  return Astro.redirect('/requests/pending');
+}
+
+const pending = await apiFetch<PendingStep[]>('/requests/pending-approval', {
+  tenantSlug: tenant.slug,
+  accessToken,
+}).catch(() => []);
+---
+
+<BaseLayout title="Aprobaciones pendientes">
+  <h1>Aprobaciones pendientes</h1>
+  <div class="card">
+    <table>
+      <thead><tr><th>Empleado</th><th>Tipo</th><th>Acción</th></tr></thead>
+      <tbody>
+        {pending.map((step) => (
+          <tr>
+            <td>{step.request.employee.firstName} {step.request.employee.lastName}</td>
+            <td>{step.request.type}</td>
+            <td>
+              <form method="POST" style="display:inline">
+                <input type="hidden" name="requestId" value={step.request.id} />
+                <input type="hidden" name="decision" value="APPROVED" />
+                <button type="submit">Aprobar</button>
+              </form>
+              <form method="POST" style="display:inline">
+                <input type="hidden" name="requestId" value={step.request.id} />
+                <input type="hidden" name="decision" value="REJECTED" />
+                <button type="submit">Rechazar</button>
+              </form>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+</BaseLayout>

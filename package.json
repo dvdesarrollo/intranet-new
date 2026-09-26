@@ -1,0 +1,18 @@
+{
+  "name": "intranet-multitenant",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Intranet multiempresa (multi-tenant): NestJS + Astro + PostgreSQL + Prisma.",
+  "scripts": {
+    "dev:api": "pnpm --filter @intranet/api start:dev",
+    "dev:web": "pnpm --filter @intranet/web dev",
+    "build": "pnpm -r build",
+    "db:generate": "pnpm --filter @intranet/database generate",
+    "db:migrate": "pnpm --filter @intranet/database migrate:dev",
+    "db:seed": "pnpm --filter @intranet/database seed"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@9.15.0"
+}

@@ -1,0 +1,38 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { apiFetch } from '../../lib/api';
+
+const { tenant, accessToken } = Astro.locals;
+
+interface Payslip {
+  id: string;
+  periodMonth: number;
+  periodYear: number;
+  netSalary: string;
+  currency: string;
+}
+
+const payslips = await apiFetch<Payslip[]>('/payroll/me', {
+  tenantSlug: tenant.slug,
+  accessToken,
+}).catch(() => []);
+---
+
+<BaseLayout title="Rol de pagos">
+  <h1>Rol de pagos</h1>
+  <p>Información de solo lectura, sincronizada automáticamente desde el ERP.</p>
+  <div class="card">
+    <table>
+      <thead><tr><th>Periodo</th><th>Neto</th><th></th></tr></thead>
+      <tbody>
+        {payslips.map((p) => (
+          <tr>
+            <td>{p.periodMonth}/{p.periodYear}</td>
+            <td>{p.netSalary} {p.currency}</td>
+            <td><a href={`/api/payroll/me/${p.id}/pdf`} target="_blank">Descargar PDF</a></td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+</BaseLayout>

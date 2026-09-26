@@ -1,0 +1,103 @@
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: var(--font-family, 'Inter'), system-ui, sans-serif;
+  color: var(--color-text);
+  background: var(--color-bg);
+}
+
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+.sidebar {
+  width: 240px;
+  flex-shrink: 0;
+  background: var(--color-primary);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem 1rem;
+}
+
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 700;
+  margin-bottom: 2rem;
+}
+
+.sidebar-logo {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  border-radius: 4px;
+  background: #fff;
+}
+
+.sidebar nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex: 1;
+}
+
+.sidebar a {
+  color: #fff;
+  text-decoration: none;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  opacity: 0.85;
+}
+
+.sidebar a:hover {
+  background: rgba(255, 255, 255, 0.12);
+  opacity: 1;
+}
+
+.logout-btn {
+  background: var(--color-accent);
+  color: #111;
+  border: none;
+  padding: 0.6rem;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.app-content {
+  flex: 1;
+  padding: 2rem;
+}
+
+.card {
+  background: #fff;
+  border-radius: 10px;
+  padding: 1.25rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  margin-bottom: 1rem;
+}
+
+.btn-primary {
+  background: var(--color-secondary);
+  color: #fff;
+  border: none;
+  padding: 0.6rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th, td {
+  text-align: left;
+  padding: 0.5rem;
+  border-bottom: 1px solid #e5e7eb;
+}

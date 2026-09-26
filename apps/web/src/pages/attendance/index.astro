@@ -1,0 +1,97 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { apiFetch } from '../../lib/api';
+
+const { tenant, accessToken } = Astro.locals;
+
+interface TimeEntry {
+  id: string;
+  type: string;
+  timestamp: string;
+  isLocationValid: boolean;
+  distanceMeters: number | null;
+}
+
+const history = await apiFetch<TimeEntry[]>('/attendance/me', {
+  tenantSlug: tenant.slug,
+  accessToken,
+}).catch(() => []);
+---
+
+<BaseLayout title="Marcación">
+  <h1>Marcación de asistencia</h1>
+  <div class="card">
+    <p>La marcación requiere permiso de geolocalización del navegador: se rechaza si estás fuera del radio permitido de tu oficina.</p>
+    <div class="clock-actions">
+      <button class="btn-primary" data-type="CHECK_IN">Entrada</button>
+      <button class="btn-primary" data-type="BREAK_START">Inicio receso</button>
+      <button class="btn-primary" data-type="BREAK_END">Fin receso</button>
+      <button class="btn-primary" data-type="CHECK_OUT">Salida</button>
+    </div>
+    <p id="clock-feedback"></p>
+  </div>
+
+  <div class="card">
+    <h2>Historial reciente</h2>
+    <table>
+      <thead><tr><th>Tipo</th><th>Fecha/Hora</th><th>Ubicación</th></tr></thead>
+      <tbody>
+        {history.map((entry) => (
+          <tr>
+            <td>{entry.type}</td>
+            <td>{new Date(entry.timestamp).toLocaleString()}</td>
+            <td>{entry.isLocationValid ? 'Válida' : 'Fuera de rango'}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+</BaseLayout>
+
+<script define:vars={{ tenantSlug: tenant.slug }}>
+  const feedback = document.getElementById('clock-feedback');
+
+  function getPosition() {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error('Este navegador no soporta geolocalización'));
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: true,
+        timeout: 10_000,
+      });
+    });
+  }
+
+  document.querySelectorAll('[data-type]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      feedback.textContent = 'Obteniendo ubicación...';
+      try {
+        const position = await getPosition();
+        const res = await fetch('/api/attendance/clock', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: button.dataset.type,
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            accuracyMeters: position.coords.accuracy,
+            deviceInfo: navigator.userAgent,
+          }),
+        });
+        const data = await res.json();
+        feedback.textContent = res.ok
+          ? 'Marcación registrada correctamente.'
+          : `No se pudo marcar: ${data.message}`;
+        if (res.ok) setTimeout(() => window.location.reload(), 1200);
+      } catch (err) {
+        feedback.textContent = `Error obteniendo ubicación: ${err.message}`;
+      }
+    });
+  });
+</script>
+
+<style>
+  .clock-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin: 1rem 0; }
+</style>
