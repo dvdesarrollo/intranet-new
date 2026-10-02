@@ -12,6 +12,13 @@ interface TimeEntry {
   distanceMeters: number | null;
 }
 
+const TYPE_LABELS: Record<string, string> = {
+  CHECK_IN: 'Entrada',
+  BREAK_START: 'Inicio receso',
+  BREAK_END: 'Fin receso',
+  CHECK_OUT: 'Salida',
+};
+
 const history = await apiFetch<TimeEntry[]>('/attendance/me', {
   tenantSlug: tenant.slug,
   accessToken,
@@ -21,30 +28,39 @@ const history = await apiFetch<TimeEntry[]>('/attendance/me', {
 <BaseLayout title="Marcación">
   <h1>Marcación de asistencia</h1>
   <div class="card">
-    <p>La marcación requiere permiso de geolocalización del navegador: se rechaza si estás fuera del radio permitido de tu oficina.</p>
+    <p class="muted">La marcación requiere permiso de geolocalización del navegador: se rechaza si estás fuera del radio permitido de tu oficina.</p>
     <div class="clock-actions">
       <button class="btn-primary" data-type="CHECK_IN">Entrada</button>
-      <button class="btn-primary" data-type="BREAK_START">Inicio receso</button>
-      <button class="btn-primary" data-type="BREAK_END">Fin receso</button>
-      <button class="btn-primary" data-type="CHECK_OUT">Salida</button>
+      <button class="btn-secondary" data-type="BREAK_START">Inicio receso</button>
+      <button class="btn-secondary" data-type="BREAK_END">Fin receso</button>
+      <button class="btn-danger" data-type="CHECK_OUT">Salida</button>
     </div>
-    <p id="clock-feedback"></p>
+    <p id="clock-feedback" class="muted"></p>
   </div>
 
   <div class="card">
     <h2>Historial reciente</h2>
-    <table>
-      <thead><tr><th>Tipo</th><th>Fecha/Hora</th><th>Ubicación</th></tr></thead>
-      <tbody>
-        {history.map((entry) => (
-          <tr>
-            <td>{entry.type}</td>
-            <td>{new Date(entry.timestamp).toLocaleString()}</td>
-            <td>{entry.isLocationValid ? 'Válida' : 'Fuera de rango'}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    {history.length === 0 && <p class="empty-state">Aún no tienes marcaciones registradas.</p>}
+    {history.length > 0 && (
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Tipo</th><th>Fecha/Hora</th><th>Ubicación</th></tr></thead>
+          <tbody>
+            {history.map((entry) => (
+              <tr>
+                <td data-label="Tipo">{TYPE_LABELS[entry.type] ?? entry.type}</td>
+                <td data-label="Fecha/Hora">{new Date(entry.timestamp).toLocaleString()}</td>
+                <td data-label="Ubicación">
+                  <span class={`badge ${entry.isLocationValid ? 'badge-approved' : 'badge-rejected'}`}>
+                    {entry.isLocationValid ? 'Válida' : 'Fuera de rango'}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
   </div>
 </BaseLayout>
 
@@ -93,5 +109,6 @@ const history = await apiFetch<TimeEntry[]>('/attendance/me', {
 </script>
 
 <style>
-  .clock-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin: 1rem 0; }
+  .clock-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; margin: 1rem 0; }
+  .clock-actions button { flex: 1 1 140px; }
 </style>

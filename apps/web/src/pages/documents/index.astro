@@ -20,18 +20,24 @@ const documents = await apiFetch<Doc[]>(
 <BaseLayout title="Documentos">
   <h1>Documentos</h1>
   <div class="card">
-    <table>
-      <thead><tr><th>Título</th><th>Tipo</th><th></th></tr></thead>
-      <tbody>
-        {documents.map((doc) => (
-          <tr>
-            <td>{doc.title}</td>
-            <td>{doc.mimeType}</td>
-            <td><a href={`/api/documents/${doc.id}/download`} target="_blank">Ver</a></td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-    {documents.length === 0 && <p>No tienes documentos visibles en esta carpeta.</p>}
+    {documents.length === 0 && <p class="empty-state">No tienes documentos visibles en esta carpeta.</p>}
+    {documents.length > 0 && (
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Título</th><th>Tipo</th><th></th></tr></thead>
+          <tbody>
+            {documents.map((doc) => (
+              <tr>
+                <td data-label="Título">{doc.title}</td>
+                <td data-label="Tipo"><span class="badge badge-neutral">{doc.mimeType}</span></td>
+                <td data-label="Acción">
+                  <a class="btn-secondary" href={`/api/documents/${doc.id}/download`} target="_blank">Ver</a>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
   </div>
 </BaseLayout>

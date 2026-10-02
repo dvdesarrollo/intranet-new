@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sin conexión</title>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: system-ui, sans-serif;
+        background: #0f172a;
+        color: #fff;
+        text-align: center;
+        padding: 1.5rem;
+      }
+      .box { max-width: 360px; }
+      h1 { font-size: 1.3rem; margin-bottom: 0.5rem; }
+      p { opacity: 0.8; margin-bottom: 1.5rem; }
+      button {
+        background: #2563eb;
+        color: #fff;
+        border: none;
+        padding: 0.7rem 1.2rem;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="box">
+      <h1>Sin conexión</h1>
+      <p>No se pudo cargar la intranet. Revisa tu conexión a internet e inténtalo de nuevo.</p>
+      <button onclick="location.reload()">Reintentar</button>
+    </div>
+  </body>
+</html>

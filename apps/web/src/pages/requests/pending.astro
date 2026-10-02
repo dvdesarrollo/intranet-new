@@ -14,6 +14,12 @@ interface PendingStep {
   };
 }
 
+const TYPE_LABELS: Record<string, string> = {
+  VACATION: 'Vacaciones',
+  PERMISSION: 'Permiso',
+  LOAN: 'Préstamo',
+};
+
 if (Astro.request.method === 'POST') {
   const form = await Astro.request.formData();
   const requestId = String(form.get('requestId'));
@@ -36,28 +42,40 @@ const pending = await apiFetch<PendingStep[]>('/requests/pending-approval', {
 <BaseLayout title="Aprobaciones pendientes">
   <h1>Aprobaciones pendientes</h1>
   <div class="card">
-    <table>
-      <thead><tr><th>Empleado</th><th>Tipo</th><th>Acción</th></tr></thead>
-      <tbody>
-        {pending.map((step) => (
-          <tr>
-            <td>{step.request.employee.firstName} {step.request.employee.lastName}</td>
-            <td>{step.request.type}</td>
-            <td>
-              <form method="POST" style="display:inline">
-                <input type="hidden" name="requestId" value={step.request.id} />
-                <input type="hidden" name="decision" value="APPROVED" />
-                <button type="submit">Aprobar</button>
-              </form>
-              <form method="POST" style="display:inline">
-                <input type="hidden" name="requestId" value={step.request.id} />
-                <input type="hidden" name="decision" value="REJECTED" />
-                <button type="submit">Rechazar</button>
-              </form>
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    {pending.length === 0 && <p class="empty-state">No tienes solicitudes pendientes de aprobar. 🎉</p>}
+    {pending.length > 0 && (
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Empleado</th><th>Tipo</th><th>Acción</th></tr></thead>
+          <tbody>
+            {pending.map((step) => (
+              <tr>
+                <td data-label="Empleado">{step.request.employee.firstName} {step.request.employee.lastName}</td>
+                <td data-label="Tipo"><span class="badge badge-info">{TYPE_LABELS[step.request.type] ?? step.request.type}</span></td>
+                <td data-label="Acción">
+                  <div class="row">
+                    <form method="POST">
+                      <input type="hidden" name="requestId" value={step.request.id} />
+                      <input type="hidden" name="decision" value="APPROVED" />
+                      <button class="btn-primary" type="submit">Aprobar</button>
+                    </form>
+                    <form method="POST">
+                      <input type="hidden" name="requestId" value={step.request.id} />
+                      <input type="hidden" name="decision" value="REJECTED" />
+                      <button class="btn-danger" type="submit">Rechazar</button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
   </div>
 </BaseLayout>
+
+<style>
+  td form { display: inline-flex; max-width: none; }
+  td .row { justify-content: flex-end; }
+</style>

@@ -2,12 +2,55 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 
 const user = Astro.locals.user;
+const tenant = Astro.locals.tenant;
+
+const ROLE_LABELS: Record<string, string> = {
+  SUPER_ADMIN: 'Super Administrador',
+  TENANT_ADMIN: 'Administrador',
+  HR: 'Recursos Humanos',
+  MANAGER: 'Jefe / Gerente',
+  APPROVER: 'Aprobador',
+  EMPLOYEE: 'Empleado',
+};
+
+const shortcuts = [
+  { href: '/attendance', label: 'Marcación', desc: 'Registra tu entrada, receso o salida', badge: 'badge-info' },
+  { href: '/payroll', label: 'Rol de pagos', desc: 'Consulta y descarga tus recibos', badge: 'badge-ok' },
+  { href: '/requests', label: 'Solicitudes', desc: 'Vacaciones, permisos y préstamos', badge: 'badge-pending' },
+  { href: '/documents', label: 'Documentos', desc: 'Políticas y archivos compartidos', badge: 'badge-neutral' },
+];
 ---
 
 <BaseLayout title="Inicio">
-  <h1>Bienvenido/a</h1>
-  <div class="card">
-    <p>Roles: {user?.roles.join(', ')}</p>
-    <p>Accede a marcación, tu rol de pagos, solicitudes, documentos y notificaciones desde el menú.</p>
+  <h1>Hola, bienvenido/a a {tenant.name} 👋</h1>
+  <div class="card row" style="align-items:center; gap:0.6rem;">
+    <span class="muted">Tu rol:</span>
+    {user?.roles.map((r) => <span class="badge badge-info">{ROLE_LABELS[r] ?? r}</span>)}
+  </div>
+
+  <div class="shortcut-grid">
+    {shortcuts.map((s) => (
+      <a href={s.href} class="card shortcut-card">
+        <span class={`badge ${s.badge}`}>{s.label}</span>
+        <p class="muted" style="margin:0.6rem 0 0;">{s.desc}</p>
+      </a>
+    ))}
   </div>
 </BaseLayout>
+
+<style>
+  .shortcut-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 1rem;
+  }
+  .shortcut-card {
+    text-decoration: none;
+    color: inherit;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .shortcut-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 16px 32px -18px rgba(0, 0, 0, 0.35);
+  }
+</style>

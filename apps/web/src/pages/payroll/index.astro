@@ -12,6 +12,11 @@ interface Payslip {
   currency: string;
 }
 
+const MONTHS = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+];
+
 const payslips = await apiFetch<Payslip[]>('/payroll/me', {
   tenantSlug: tenant.slug,
   accessToken,
@@ -20,19 +25,26 @@ const payslips = await apiFetch<Payslip[]>('/payroll/me', {
 
 <BaseLayout title="Rol de pagos">
   <h1>Rol de pagos</h1>
-  <p>Información de solo lectura, sincronizada automáticamente desde el ERP.</p>
+  <p class="muted">Información de solo lectura, sincronizada automáticamente desde el ERP.</p>
   <div class="card">
-    <table>
-      <thead><tr><th>Periodo</th><th>Neto</th><th></th></tr></thead>
-      <tbody>
-        {payslips.map((p) => (
-          <tr>
-            <td>{p.periodMonth}/{p.periodYear}</td>
-            <td>{p.netSalary} {p.currency}</td>
-            <td><a href={`/api/payroll/me/${p.id}/pdf`} target="_blank">Descargar PDF</a></td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    {payslips.length === 0 && <p class="empty-state">Todavía no hay recibos sincronizados.</p>}
+    {payslips.length > 0 && (
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Periodo</th><th>Neto</th><th>Recibo</th></tr></thead>
+          <tbody>
+            {payslips.map((p) => (
+              <tr>
+                <td data-label="Periodo">{MONTHS[p.periodMonth - 1] ?? p.periodMonth} {p.periodYear}</td>
+                <td data-label="Neto"><strong>{p.netSalary} {p.currency}</strong></td>
+                <td data-label="Recibo">
+                  <a class="btn-secondary" href={`/api/payroll/me/${p.id}/pdf`} target="_blank">Descargar PDF</a>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
   </div>
 </BaseLayout>

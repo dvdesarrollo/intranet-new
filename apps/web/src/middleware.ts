@@ -14,7 +14,16 @@ declare global {
 }
 
 const API_BASE_URL = import.meta.env.API_BASE_URL ?? 'http://localhost:3000/api/v1';
-const PUBLIC_PATHS = ['/login', '/favicon.svg'];
+// Rutas accesibles sin sesión: login y todo lo que el navegador pide ANTES
+// de que haya un usuario logueado para poder ofrecer "Instalar app"
+// (manifest, service worker, íconos) desde la propia pantalla de login.
+const PUBLIC_PATHS = [
+  '/login',
+  '/favicon.svg',
+  '/manifest.webmanifest',
+  '/sw.js',
+  '/icons/',
+];
 
 const DEFAULT_BRANDING: TenantBranding = {
   logoUrl: null,

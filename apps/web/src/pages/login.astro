@@ -31,45 +31,111 @@ if (Astro.request.method === 'POST') {
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <link rel="icon" href={branding.faviconUrl ?? '/favicon.svg'} />
     <title>Iniciar sesión · {tenant.name}</title>
-    <style define:vars={{ colorPrimary: branding.primaryColor, colorSecondary: branding.secondaryColor }}>
+
+    <!-- El login también es parte de la "app shell": tiene que ofrecer la
+         instalación PWA incluso antes de que exista una sesión. -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content={branding.primaryColor} />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+
+    <style define:vars={{
+      colorPrimary: branding.primaryColor,
+      colorSecondary: branding.secondaryColor,
+      colorAccent: branding.accentColor,
+    }}>
+      * { box-sizing: border-box; }
       body {
         margin: 0;
-        min-height: 100vh;
+        min-height: 100dvh;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-family: system-ui, sans-serif;
-        background: var(--colorPrimary);
+        font-family: 'Inter', system-ui, sans-serif;
+        background:
+          radial-gradient(1200px 600px at 10% -10%, color-mix(in srgb, var(--colorAccent) 35%, transparent), transparent),
+          linear-gradient(135deg, var(--colorPrimary), color-mix(in srgb, var(--colorPrimary) 55%, var(--colorSecondary)));
+        padding: 1.5rem;
+        padding-top: max(1.5rem, env(safe-area-inset-top));
+        padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
       }
       .login-card {
         background: #fff;
-        padding: 2.5rem;
-        border-radius: 12px;
+        padding: 2.25rem 2rem;
+        border-radius: 18px;
         width: 100%;
         max-width: 380px;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        box-shadow: 0 25px 60px -20px rgba(0, 0, 0, 0.45);
       }
-      .login-card img { max-height: 48px; margin-bottom: 1rem; }
+      .login-card img {
+        max-height: 44px;
+        margin-bottom: 1rem;
+        border-radius: 8px;
+      }
+      .login-card h1 {
+        font-size: 1.3rem;
+        margin: 0 0 1.5rem;
+        font-weight: 800;
+        letter-spacing: -0.01em;
+      }
+      .field { margin-bottom: 1rem; }
+      .field label {
+        display: block;
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: #475569;
+        margin-bottom: 0.35rem;
+      }
       input {
         width: 100%;
-        padding: 0.6rem;
-        margin-bottom: 1rem;
-        border: 1px solid #d1d5db;
-        border-radius: 6px;
+        padding: 0.7rem 0.85rem;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 10px;
+        font-size: 0.95rem;
+        font-family: inherit;
+      }
+      input:focus {
+        outline: none;
+        border-color: var(--colorSecondary);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--colorSecondary) 25%, transparent);
       }
       button {
         width: 100%;
-        padding: 0.7rem;
-        background: var(--colorSecondary);
+        padding: 0.75rem;
+        margin-top: 0.5rem;
+        background: linear-gradient(135deg, var(--colorSecondary), color-mix(in srgb, var(--colorSecondary) 70%, var(--colorPrimary)));
         color: #fff;
         border: none;
-        border-radius: 6px;
-        font-weight: 600;
+        border-radius: 10px;
+        font-weight: 700;
+        font-size: 0.95rem;
         cursor: pointer;
       }
-      .error { color: #dc2626; margin-bottom: 1rem; font-size: 0.9rem; }
+      button:active { transform: scale(0.98); }
+      .error {
+        color: #b91c1c;
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        padding: 0.6rem 0.8rem;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        font-size: 0.85rem;
+      }
+
+      @media (max-width: 420px) {
+        .login-card { padding: 1.75rem 1.4rem; border-radius: 14px; }
+      }
     </style>
   </head>
   <body>
@@ -77,9 +143,16 @@ if (Astro.request.method === 'POST') {
       {branding.logoUrl && <img src={branding.logoUrl} alt={tenant.name} />}
       <h1>{tenant.name}</h1>
       {error && <p class="error">{error}</p>}
-      <input type="email" name="email" placeholder="Correo corporativo" required />
-      <input type="password" name="password" placeholder="Contraseña" required />
+      <div class="field">
+        <label for="email">Correo corporativo</label>
+        <input id="email" type="email" name="email" placeholder="tu@empresa.com" required autocomplete="username" />
+      </div>
+      <div class="field">
+        <label for="password">Contraseña</label>
+        <input id="password" type="password" name="password" placeholder="••••••••" required autocomplete="current-password" />
+      </div>
       <button type="submit">Ingresar</button>
     </form>
+    <script src="/register-sw.js" defer></script>
   </body>
 </html>

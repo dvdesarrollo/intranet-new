@@ -17,9 +17,27 @@ const user = Astro.locals.user as SessionUser | null;
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <link rel="icon" href={branding.faviconUrl ?? '/favicon.svg'} />
     <title>{title} · {tenant.name}</title>
+
+    <!-- PWA: manifest por-tenant (ver pages/manifest.webmanifest.ts) +
+         metadatos de instalación para Android/iOS -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content={branding.primaryColor} />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content={tenant.name} />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+
     <style define:vars={{
       colorPrimary: branding.primaryColor,
       colorSecondary: branding.secondaryColor,
@@ -40,17 +58,42 @@ const user = Astro.locals.user as SessionUser | null;
         --color-accent: var(--colorAccent);
         --color-text: var(--colorText);
         --color-bg: var(--colorBg);
-        --font-family: var(--fontFamily);
+        --font-family: var(--fontFamily), 'Inter', system-ui, sans-serif;
       }
     </style>
     <link rel="stylesheet" href="/styles/global.css" />
   </head>
   <body>
+    <!-- Checkbox-driven drawer: el menú móvil funciona sin JavaScript (más
+         robusto); register-sw.js solo se encarga de la instalación PWA. -->
+    <input type="checkbox" id="nav-toggle" class="nav-toggle-input" aria-hidden="true" />
+
+    <header class="topbar">
+      <label for="nav-toggle" class="hamburger" aria-label="Abrir menú">
+        <span></span><span></span><span></span>
+      </label>
+      <div class="topbar-brand">
+        {branding.logoUrl && <img src={branding.logoUrl} alt="" />}
+        <span>{tenant.name}</span>
+      </div>
+    </header>
+
+    <label for="nav-toggle" class="nav-overlay" aria-hidden="true"></label>
+
     <div class="app-shell">
-      {user && <Sidebar tenantName={tenant.name} logoUrl={branding.logoUrl} roles={user.roles} />}
+      {user && (
+        <Sidebar
+          tenantName={tenant.name}
+          logoUrl={branding.logoUrl}
+          roles={user.roles}
+          currentPath={Astro.url.pathname}
+        />
+      )}
       <main class="app-content">
         <slot />
       </main>
     </div>
+
+    <script src="/register-sw.js" defer></script>
   </body>
 </html>

@@ -12,6 +12,26 @@ interface RequestItem {
   createdAt: string;
 }
 
+const TYPE_LABELS: Record<string, string> = {
+  VACATION: 'Vacaciones',
+  PERMISSION: 'Permiso',
+  LOAN: 'Préstamo',
+};
+
+const STATUS_BADGE: Record<string, string> = {
+  PENDING: 'badge-pending',
+  APPROVED: 'badge-approved',
+  REJECTED: 'badge-rejected',
+  CANCELLED: 'badge-neutral',
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  PENDING: 'Pendiente',
+  APPROVED: 'Aprobada',
+  REJECTED: 'Rechazada',
+  CANCELLED: 'Cancelada',
+};
+
 let formError: string | null = null;
 
 if (Astro.request.method === 'POST') {
@@ -51,12 +71,13 @@ const myRequests = await apiFetch<RequestItem[]>('/requests/me', {
   <div class="card">
     <h2>Nueva solicitud</h2>
     {formError && <p class="error">{formError}</p>}
-    <form method="POST">
+    <form method="POST" class="form-grid">
       <select name="type" required>
         <option value="VACATION">Vacaciones</option>
         <option value="PERMISSION">Permiso</option>
         <option value="LOAN">Préstamo</option>
       </select>
+      <div></div>
       <input type="date" name="startDate" placeholder="Desde" />
       <input type="date" name="endDate" placeholder="Hasta" />
       <input type="number" name="amount" placeholder="Monto (préstamo)" step="0.01" />
@@ -68,18 +89,27 @@ const myRequests = await apiFetch<RequestItem[]>('/requests/me', {
 
   <div class="card">
     <h2>Mis solicitudes</h2>
-    <table>
-      <thead><tr><th>Tipo</th><th>Estado</th><th>Paso actual</th><th>Fecha</th></tr></thead>
-      <tbody>
-        {myRequests.map((r) => (
-          <tr>
-            <td>{r.type}</td>
-            <td>{r.status}</td>
-            <td>{r.currentStep}</td>
-            <td>{new Date(r.createdAt).toLocaleDateString()}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    {myRequests.length === 0 && <p class="empty-state">Todavía no has creado ninguna solicitud.</p>}
+    {myRequests.length > 0 && (
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Tipo</th><th>Estado</th><th>Paso actual</th><th>Fecha</th></tr></thead>
+          <tbody>
+            {myRequests.map((r) => (
+              <tr>
+                <td data-label="Tipo">{TYPE_LABELS[r.type] ?? r.type}</td>
+                <td data-label="Estado">
+                  <span class={`badge ${STATUS_BADGE[r.status] ?? 'badge-neutral'}`}>
+                    {STATUS_LABELS[r.status] ?? r.status}
+                  </span>
+                </td>
+                <td data-label="Paso actual">{r.currentStep}</td>
+                <td data-label="Fecha">{new Date(r.createdAt).toLocaleDateString()}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
   </div>
 </BaseLayout>

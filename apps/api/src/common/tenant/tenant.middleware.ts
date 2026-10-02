@@ -62,10 +62,17 @@ export class TenantMiddleware implements NestMiddleware {
     const host = req.header('host') ?? '';
     const hostname = host.split(':')[0];
 
+    const parts = hostname.split('.');
+
+    // `*.localhost` (2 segmentos) para desarrollo local sin HTTPS — ver la
+    // misma excepción en apps/web/src/lib/tenant.ts.
+    if (parts.length === 2 && parts[1] === 'localhost') {
+      return parts[0].toLowerCase();
+    }
+
     // dominio propio (ej. intranet.acme.com) resuelto por TenantsService en
     // el arranque hacia una tabla de lookup en memoria/caché; simplificado
     // aquí a extraer el primer segmento como slug de subdominio.
-    const parts = hostname.split('.');
     if (parts.length >= 3) {
       return parts[0].toLowerCase();
     }

@@ -13,6 +13,13 @@ interface Notification {
   reads: { readAt: string }[];
 }
 
+const SCOPE_LABELS: Record<string, string> = {
+  COMPANY: 'Toda la empresa',
+  DEPARTMENT: 'Departamento',
+  CITY: 'Ciudad',
+  INDIVIDUAL: 'Para ti',
+};
+
 const notifications = await apiFetch<Notification[]>('/notifications/me', {
   tenantSlug: tenant.slug,
   accessToken,
@@ -21,12 +28,24 @@ const notifications = await apiFetch<Notification[]>('/notifications/me', {
 
 <BaseLayout title="Notificaciones">
   <h1>Notificaciones</h1>
-  {notifications.map((n) => (
-    <div class="card" style={n.reads.length ? 'opacity:0.6' : ''}>
-      <strong>{n.title}</strong> <span>({n.scope})</span>
-      <p>{n.body}</p>
-      <small>{new Date(n.createdAt).toLocaleString()}</small>
-    </div>
-  ))}
-  {notifications.length === 0 && <p>No tienes notificaciones.</p>}
+  <div class="stack">
+    {notifications.map((n) => {
+      const unread = n.reads.length === 0;
+      return (
+        <div class={`card notification-card ${unread ? 'notification-unread' : ''}`}>
+          <div class="row" style="justify-content:space-between; align-items:flex-start;">
+            <strong>{n.title}</strong>
+            <span class="badge badge-info">{SCOPE_LABELS[n.scope] ?? n.scope}</span>
+          </div>
+          <p style="margin:0.5rem 0;">{n.body}</p>
+          <small class="muted">{new Date(n.createdAt).toLocaleString()}</small>
+        </div>
+      );
+    })}
+  </div>
+  {notifications.length === 0 && <p class="empty-state">No tienes notificaciones.</p>}
 </BaseLayout>
+
+<style>
+  .notification-unread { border-left: 4px solid var(--color-accent); }
+</style>
